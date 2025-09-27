@@ -43,23 +43,21 @@ app.post('/v1/chat/completions', async (req, res) => {
 
     const euronReply = response.data;
 
+    const rawContent = euronReply.choices?.[0]?.message?.content;
+
     const openAIFormattedResponse = {
       id: 'chatcmpl-fakeid',
       object: 'chat.completion',
       created: Date.now(),
-      model,
-      choices: [
-        {
-          index: 0,
-          message: {
-            role: 'assistant',
-            content: euronReply.choices?.[0]?.message?.content?.[0]?.text ?? '',
-          },
-          finish_reason: 'stop',
+      model,choices: [{
+        index: 0,
+        message: {
+          role: 'assistant',
+          content: Array.isArray(rawContent) ? rawContent.map(item => item.text).join('\n\n'): (typeof rawContent === 'string' ? rawContent : ''),
         },
-      ],
-      usage: euronReply.usage ?? {},
-    };
+      finish_reason: 'stop',},],
+      usage: euronReply.usage ?? {},};
+
 
     res.json(openAIFormattedResponse);
   } catch (err) {
