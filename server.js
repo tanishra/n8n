@@ -9,6 +9,7 @@ const YOUR_EURON_API_KEY = process.env.EURON_API_KEY;
 app.post('/v1/chat/completions', async (req, res) => {
   const { model, messages, max_tokens, temperature } = req.body;
 
+
   // Convert assistant messages to Euron's structured format
   const euronMessages = messages.map(m => {
     if (m.role === 'assistant' && typeof m.content === 'string') {
@@ -80,6 +81,11 @@ app.post('/v1/chat/completions', async (req, res) => {
     });
   }
 });
+
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
