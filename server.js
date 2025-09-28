@@ -1,16 +1,22 @@
 // server.js
 const express = require('express');
 const axios = require('axios');
+const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
+
 const app = express();
 app.use(express.json());
 
 const YOUR_EURON_API_KEY = process.env.EURON_API_KEY;
 
+// --- Multer Setup for File Uploads ---
+const upload = multer({ dest: 'uploads/' });
+
+// --- Chat Completion Route ---
 app.post('/v1/chat/completions', async (req, res) => {
   const { model, messages, max_tokens, temperature } = req.body;
 
-
-  // Convert assistant messages to Euron's structured format
   const euronMessages = messages.map(m => {
     if (m.role === 'assistant' && typeof m.content === 'string') {
       return {
@@ -47,13 +53,11 @@ app.post('/v1/chat/completions', async (req, res) => {
 
     const euronReply = response.data;
 
-    // Extract and flatten content from Euron's structured format
     const rawContent = euronReply.choices?.[0]?.message?.content;
     const extractedContent = Array.isArray(rawContent)
       ? rawContent.map(item => item.text).join('\n\n')
       : (typeof rawContent === 'string' ? rawContent : '');
 
-    // Format response to match OpenAI's expected shape
     const openAIFormattedResponse = {
       id: 'chatcmpl-fakeid',
       object: 'chat.completion',
@@ -82,11 +86,57 @@ app.post('/v1/chat/completions', async (req, res) => {
   }
 });
 
+// --- Audio Transcription Route ---
+app.post('/v1/audio/transcriptions', upload.single('file'), async (req, res) => {
+  const { model, language, prompt, response_format, temperature } = req.body;
+  const audioFile = req.file;
+
+  if (!audioFile || !model) {
+    return res.status(400).json({ error: 'Missing required fields: file and model' });
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append('file', fs.createReadStream(audioFile.path));
+    formData.append('model', model);
+
+    if (language) formData.append('language', language);
+    if (prompt) formData.append('prompt', prompt);
+    if (response_format) formData.append('response_format', response_format);
+    if (temperature) formData.append('temperature', temperature);
+
+    const response = await axios.post(
+      'https://api.euron.one/api/v1/euri/audio/transcriptions',
+      formData,
+      {
+        headers: {
+          ...formData.getHeaders(),
+          Authorization: `Bearer ${YOUR_EURON_API_KEY}`, 
+        },
+      }
+    );
+
+    res.json(response.data);
+  } catch (err) {
+    console.error('[Transcription Error]', err.response?.data || err.message);
+    res.status(500).json({
+      error: 'Failed to process transcription',
+      detail: err.response?.data || err.message,
+    });
+  } finally {
+    // Cleanup uploaded file
+    if (audioFile?.path) {
+      fs.unlink(audioFile.path, () => {});
+    }
+  }
+});
+
+// --- Health Check ---
 app.get('/', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-
+// --- Start Server ---
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`✅ Euron Proxy running on port ${PORT}`);
