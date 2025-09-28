@@ -106,12 +106,12 @@ app.post('/v1/audio/transcriptions', upload.single('file'), async (req, res) => 
     if (temperature) formData.append('temperature', temperature);
 
     const response = await axios.post(
-      'https://api.euron.one/api/v1/euri/audio/transcriptions',
+      'https://api.openai.com/v1/audio/transcriptions',
       formData,
       {
         headers: {
           ...formData.getHeaders(),
-          Authorization: `Bearer ${YOUR_EURON_API_KEY}`, 
+          Authorization: `Bearer ${YOUR_EURON_API_KEY}`, // must be an OpenAI key in this case
         },
       }
     );
@@ -124,12 +124,12 @@ app.post('/v1/audio/transcriptions', upload.single('file'), async (req, res) => 
       detail: err.response?.data || err.message,
     });
   } finally {
-    // Cleanup uploaded file
     if (audioFile?.path) {
       fs.unlink(audioFile.path, () => {});
     }
   }
 });
+
 
 // --- Health Check ---
 app.get('/', (req, res) => {
